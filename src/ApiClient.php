@@ -38,18 +38,18 @@ class ApiClient
     /**
      * Grants access to a specific context for a user within an optional time frame.
      *
-     * @param mixed     $contextId The unique identifier for the context to which access is being granted.
-     * @param mixed     $userId    The unique identifier for the user being granted access.
+     * @param int     $contextId The unique identifier for the context to which access is being granted.
+     * @param int     $userId    The unique identifier for the user being granted access.
      * @param DateTime|null $from Optional start date-time from which the access is valid. Default is null, indicating immediate access.
      * @param DateTime|null $to   Optional end date-time until which the access is valid. Default is null, indicating indefinite access.
      *
      * @return object              Returns an object representing the granted access.
-     *                             @TODO Description of the object structure, if needed (modify based on actual implementation).
+     *                             @todo Description of the object structure, if needed (modify based on actual implementation).
      *
-     * @throws Exception           @TODO Description of the exception, if any (this is just an example, modify based on actual implementation).
+     * @throws Exception           @todo Description of the exception, if any (this is just an example, modify based on actual implementation).
      */
 
-    public function createGrantedAccess($contextId, $userId, ?DateTime $from = null, ?DateTime $to = null ): object
+    public function createGrantedAccess(int $contextId, int $userId, ?DateTime $from = null, ?DateTime $to = null ): object
     {
         $data = array(
             "user_id" => $userId,
@@ -59,6 +59,36 @@ class ApiClient
         ); 
 
         return $this->create("grants/", $data);
+    }
+
+
+    /**
+     * Updates an existing granted access record with new context, user details, and time frame.
+     *
+     * @param int       $grantedAccessId The unique identifier of the granted access record to update.
+     * @param int       $contextId       The unique identifier for the context to which access is being updated.
+     * @param int       $userId          The unique identifier for the user whose access is being updated.
+     * @param DateTime|null $from       Optional start date-time from which the updated access will be valid.
+     *                                   Default is null, indicating immediate access.
+     * @param DateTime|null $to         Optional end date-time until which the updated access will be valid.
+     *                                   Default is null, indicating indefinite access.
+     *
+     * @return object                    Returns an object representing the updated granted access.
+     *                                   @todo
+     *
+     * @throws Exception                 @todo
+     * @throws InvalidArgumentException If provided arguments don't match existing data or other validation errors.
+     */
+    public function updateGrantedAccess(int $grantedAccessId, int $contextId, int $userId, ?DateTime $from = null, ?DateTime $to = null ): object
+    {
+        $data = array(
+            "user_id" => $userId,
+            "expiry_time_start" => $from->format('Y-m-d H:i:s'),
+            "expiry_time_end" => $from->format('Y-m-d H:i:s'),
+            "context_id" => $contextId,
+        ); 
+
+        return $this->update("grants/$grantedAccessId", $data);
     }
 
     /**
@@ -119,9 +149,9 @@ class ApiClient
      * @param int   $perPage  The number of users to list per page. Default is 100.
      *
      * @return array          Returns an array of users matching the filters and pagination parameters.
-     *                        @TODO Description of the return value, if needed (modify based on actual implementation).
+     *                        @todo
      *
-     * @throws Exception      @TODO Description of the exception, if any (this is just an example, modify based on actual implementation).
+     * @throws Exception      @todo
      * @throws InvalidArgumentException If 'identifierSubstring' is provided with less than 3 characters.
      */
     public function listUsers(array $filters = [], $page = 1, $perPage=100)
@@ -129,9 +159,41 @@ class ApiClient
         return $this->list('users', $filters, $page, $perPage);
     }
 
+
+    /**
+     * Retrieves a list of granted accesses based on specified filters and pagination details.
+     *
+     * @param array $filters Optional associative array of filters to apply to the listing.
+     *                       E.g. ['contextId' => 12345, 'userId' => 6789].
+     * @param int   $page    Optional page number for pagination. Default is 1.
+     * @param int   $perPage Optional number of granted accesses to retrieve per page. Default is 100.
+     *
+     * @return array         Returns an array of objects representing each granted access that matches the filters.
+     *                       Each object contains details of the granted access, such as contextId, userId, and date-time details.
+     *
+     * @throws Exception     @todo
+     */
+    public function listGrantedAccesses(array $filters = [], $page = 1, $perPage=100)
+    {
+        return $this->list('grants', $filters, $page, $perPage);
+    }
+
     private function create(string $path, array $data)
     {
         $response = $this->client->post($path, [
+            'headers' => [
+                'Content-Type' => 'application/json'
+            ],
+            'body' => json_encode($data)
+        ]);
+
+        return json_decode($response->getBody());
+    }
+
+
+    private function update(string $path, array $data)
+    {
+        $response = $this->client->patch($path, [
             'headers' => [
                 'Content-Type' => 'application/json'
             ],
