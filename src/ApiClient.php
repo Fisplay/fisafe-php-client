@@ -53,8 +53,8 @@ class ApiClient
     {
         $data = array(
             "user_id" => $userId,
-            "expiry_time_start" => $from,
-            "expiry_time_end" => $to,
+            "expiry_time_start" => $from->format('Y-m-d H:i:s'),
+            "expiry_time_end" => $from->format('Y-m-d H:i:s'),
             "context_id" => $contextId,
         ); 
 
