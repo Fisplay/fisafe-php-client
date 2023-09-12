@@ -72,9 +72,9 @@ class ApiClient
      * @throws Exception         @TODO Description of the exception, if any (this is just an example, modify based on actual implementation).
      * @throws InvalidArgumentException If an invalid $type is provided.
      */
-    public function createIdentifer(int $userId, string $identifier, string $type = 'rfid-tag'): object
+    public function createIdentifier(int $userId, string $identifier, string $type = 'rfid-tag'): object
     {
-        if(!in_array($type, ['rfid-tag', 'pin', 'licence-plate  '])) {
+        if(!in_array($type, ['rfid-tag', 'pin', 'licence-plate'])) {
             throw new InvalidArgumentException();
         }
 
