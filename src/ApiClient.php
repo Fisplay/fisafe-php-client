@@ -53,11 +53,12 @@ class ApiClient
     {
         $data = array(
             "user_id" => $userId,
-            "expiry_access_start" => $from,
-            "expiry_access_end" => $to,
+            "expiry_time_start" => $from,
+            "expiry_time_end" => $to,
+            "context_id" => $contextId,
         ); 
 
-        return $this->create("contexts/$contextId/users", $data);
+        return $this->create("grants/", $data);
     }
 
     /**
