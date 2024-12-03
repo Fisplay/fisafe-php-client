@@ -1,12 +1,19 @@
 {
     "name": "fisafe/api-client",
     "description": "The `Fisafe Api Client` is a powerful PHP client designed to integrate seamlessly with the `fisafe.cloud` API.",
+    "repositories": [
+        {
+            "type": "composer",
+            "url": "https://gitlab.com/api/v4/group/10329260/-/packages/composer/"
+        }
+    ],
     "autoload": {
         "psr-4": {
             "Fisafe\\": "src/"
         }
     },
     "require": {
-        "guzzlehttp/guzzle": "^7.5"
+        "php": "^8.0",
+        "fisplay/keycloak-client": "^0.0.5"
     }
 }
