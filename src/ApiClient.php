@@ -1,38 +1,98 @@
 <?php
 namespace Fisafe;
 
-use GuzzleHttp\Client;
 use InvalidArgumentException;
 use DateTime;
+use Exception;
+use Fisplay\KeycloakClient\Client;
 
 class ApiClient
 {
-    private $apiUrl;
-    private $client;
+    private Client $client;
+    private string $apiUrl;
+    private string $authUrl;
 
-    public function __construct(string $apiUrl)
-    {
-        $this->apiUrl = $apiUrl;
-    }
+    /** @var null|array<string $organizationId, string $organizationApiUrl> */
+    private array|null $organizations = null;
 
-    public function authenticate($username, $password)
-    {
-        $client = new Client([
-            'base_uri' => $this->apiUrl
-        ]);
-        $response = $client->request('GET', 'v1/token/auth', [
-            'auth' => [$username, $password]
-        ]);
+    /**
+     * @param string $authUrl
+     * @param string $realm
+     * @param string $clientId
+     * @param string $username
+     * @param string $password
+     */
+    public function __construct(
+        string $authUrl,
+        string $realm,
+        string $clientId,
+        string $username,
+        string $password
+    ) {
+        $this->apiUrl = '';
+        $this->authUrl = $authUrl;
 
-        $token = json_decode($response->getBody(), true);
-
-        $this->client = new Client([
-            'base_uri' => $this->apiUrl . '/v1/api/',
-            'headers' => [
-                'Authorization' => 'Bearer ' . $token['access_token']
+        $this->client = Client::factory([
+            'realm' => $realm,
+            'username' => $username,
+            'password' => $password,
+            'client_id' => $clientId,
+            'baseUri' => $this->authUrl,
+            'custom_operations' => [
+                'getOrganizations' => [
+                    'uri' => 'realms/{realm}/orgs/me',
+                    'description' => 'Get organizations to which the active user is related to',
+                    'httpMethod' => 'GET',
+                    'parameters' => [
+                        'realm' => [
+                            'location' => 'uri',
+                            'description' => 'The Realm name',
+                            'type' => 'string',
+                            'required' => true,
+                        ],
+                    ],
+                ],
             ]
         ]);
+    }
+
+    /**
+     * @param string $apiUrl
+     * @return static
+     */
+    public function setApiUrl(string $apiUrl): static
+    {
+        // User must have access to the specified API
+        foreach ($this->getOrganizations() as $organizationUrl) {
+            if (str_starts_with($apiUrl, $organizationUrl)) {
+                $this->apiUrl = $apiUrl;
+                break;
+            }
+        }
+
+        // User must have access to the specified API
+        if (!$this->apiUrl) {
+            throw new Exception('User has no access to ' . $apiUrl);
+        }
+
         return $this;
+    }
+
+    /**
+     * @return array<string $organizationId, string $organizationApiUrl>
+     */
+    public function getOrganizations(): array
+    {
+        // Initialize organizations
+        if ($this->organizations === null) {
+            $this->organizations = [];
+
+            foreach ($this->client->getOrganizations() as $organizationId => $organizationData) {
+                $this->organizations[$organizationId] = $organizationData['url'];
+            }
+        }
+
+        return $this->organizations;
     }
 
     /**
@@ -48,7 +108,6 @@ class ApiClient
      *
      * @throws Exception           @todo Description of the exception, if any (this is just an example, modify based on actual implementation).
      */
-
     public function createGrantedAccess(int $contextId, int $userId, ?DateTime $from = null, ?DateTime $to = null ): object
     {
         $data = array(
@@ -58,9 +117,8 @@ class ApiClient
             "context_id" => $contextId,
         ); 
 
-        return $this->create("grants/", $data);
+        return $this->post("grants/", $data);
     }
-
 
     /**
      * Updates an existing granted access record with new context, user details, and time frame.
@@ -88,7 +146,7 @@ class ApiClient
             "context_id" => $contextId,
         ); 
 
-        return $this->update("grants/$grantedAccessId", $data);
+        return $this->patch("grants/$grantedAccessId", $data);
     }
 
     /**
@@ -113,7 +171,7 @@ class ApiClient
             "type" => $type,
             "value" => $identifier
         ); 
-        return $this->create("users/$userId/identifiers", $data);
+        return $this->post("users/$userId/identifiers", $data);
     }
 
     /**
@@ -128,14 +186,11 @@ class ApiClient
     public function createUser(string $userIdentifier): object
     {
         $data = [
-            "identifier" => $userIdentifier,
-            // "tag" => $tag, //BUG!!  https://gitlab.com/fisplay/ac/kulva23/-/issues/112. Separated identifier creationg because of it.
-            // "owner_id" => '', // Legacy stuff, not needed?
+            'identifier' => $userIdentifier,
         ];
         
-        return $this->create('users/', $data);
+        return $this->post('users/', $data);
     }
-
 
     /**
      * Retrieves a list of users based on provided filters and pagination parameters.
@@ -159,7 +214,6 @@ class ApiClient
         return $this->list('users', $filters, $page, $perPage);
     }
 
-
     /**
      * Retrieves a list of granted accesses based on specified filters and pagination details.
      *
@@ -178,39 +232,65 @@ class ApiClient
         return $this->list('grants', $filters, $page, $perPage);
     }
 
-    private function create(string $path, array $data)
-    {
-        $response = $this->client->post($path, [
-            'headers' => [
-                'Content-Type' => 'application/json'
-            ],
-            'body' => json_encode($data)
-        ]);
-
-        return json_decode($response->getBody());
-    }
-
-
-    private function update(string $path, array $data)
-    {
-        $response = $this->client->patch($path, [
-            'headers' => [
-                'Content-Type' => 'application/json'
-            ],
-            'body' => json_encode($data)
-        ]);
-
-        return json_decode($response->getBody());
-    }
-
-    private function list($path, array $filters = [], int $page = 1, int $perPage = 100)
-    {
+    private function list(
+        string $path,
+        array $filters = [],
+        int $page = 1,
+        int $perPage = 100
+    ) {
         $filters['page'] = $page;
         $filters['itemsPerPage'] = $perPage;
 
-        $response = $this->client->get($path, [
-            'query' => $filters
-        ]);
+        return $this->get($path, $filters);
+    }
+
+    private function post(string $path, array $data)
+    {
+        return $this->request(
+            $path,
+            'POST',
+            [
+                'headers' => [
+                    'Content-Type' => 'application/json'
+                ],
+                'body' => json_encode($data)
+            ]
+        );
+    }
+
+    private function patch(string $path, array $data)
+    {
+        return $this->request(
+            $path,
+            'PATCH',
+            [
+                'headers' => [
+                    'Content-Type' => 'application/json'
+                ],
+                'body' => json_encode($data)
+            ]
+        );
+    }
+
+    private function get(string $path, array $queryParams)
+    {
+        return $this->request(
+            $path,
+            'GET',
+            ['query' => $queryParams]
+        );
+    }
+
+    private function request(string $path, string $method, array $options)
+    {
+        // Api url must be specified
+        if (!$this->apiUrl) {
+            throw new Exception('Api url must be specified first with setApiUrl');
+        }
+
+        $response = $this->client
+            ->getHttpClient()
+            ->request($method, $this->apiUrl . $path, $options);
 
         return json_decode($response->getBody());
     }
