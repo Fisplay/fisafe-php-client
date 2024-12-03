@@ -24,19 +24,25 @@ use Fisafe\ApiClient;
 require('vendor/autoload.php');
 ```
 
-Initialize the client by passing the desired endpoint:
+Initialize the client by passing the desired authentication details with your `fisafe.cloud` credentials:
 
 ```php
-$fisafeClient = new ApiClient('https://myaddress.fisafe.cloud');
+$fisafeClient = new ApiClient(
+    'https://auth.fisafe.cloud',
+    'used_realm',
+    'used_client_id',
+    'your_username'
+    'your_password'
+);
 ```
 
-## Authentication
-
-Authenticate your client instance using your `fisafe.cloud` credentials:
+Specify used organization (tenant) domain
 
 ```php
-$fisafeClient->authenticate('your_username', 'your_password');
+$fisafeClient->setApiUrl('https://organization-domain.fisplay.cloud/v1/api/');
 ```
+
+You can also change the url (organization context) if needed, but the user must be related to the organization.
 
 ## Usage
 
